@@ -24,11 +24,16 @@ function Config() {
 		'settings/history': false,
 
 		'settings/shortcuts/translate': 'w',
-		'settings/shortcuts/rotate': 'e',
-		'settings/shortcuts/scale': 'r',
-		'settings/shortcuts/undo': 'z',
-		'settings/shortcuts/focus': 'f'
-	};
+                'settings/shortcuts/rotate': 'e',
+                'settings/shortcuts/scale': 'r',
+                'settings/shortcuts/undo': 'z',
+                'settings/shortcuts/focus': 'f',
+                'settings/shortcuts/selectionObject': '1',
+                'settings/shortcuts/selectionVertex': '2',
+                'settings/shortcuts/selectionEdge': '3',
+                'settings/shortcuts/selectionFace': '4',
+                'settings/shortcuts/commandTerminal': '`'
+        };
 
 	if ( window.localStorage[ name ] === undefined ) {
 

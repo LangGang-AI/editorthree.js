@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
-import { UIPanel, UIRow, UIText, UIInput, UIButton, UISpan, UITextArea } from './libs/ui.js';
+import { UIPanel, UIRow, UIText, UIInput, UIButton, UISpan, UITextArea, UISelect } from './libs/ui.js';
 
+import { SetGeometryCommand } from './commands/SetGeometryCommand.js';
 import { SetGeometryValueCommand } from './commands/SetGeometryValueCommand.js';
 
 import { SidebarGeometryBufferGeometry } from './Sidebar.Geometry.BufferGeometry.js';
@@ -125,7 +126,71 @@ function SidebarGeometry( editor ) {
 	geometryNameRow.add( new UIText( strings.getKey( 'sidebar/geometry/name' ) ).setClass( 'Label' ) );
 	geometryNameRow.add( geometryName );
 
-	container.add( geometryNameRow );
+        container.add( geometryNameRow );
+
+        const geometryClipboardRow = new UIRow();
+        const copyGeometryButton = new UIButton( strings.getKey( 'sidebar/geometry/copy' ) );
+        const pasteGeometryButton = new UIButton( strings.getKey( 'sidebar/geometry/paste' ) ).setMarginLeft( '4px' );
+
+        copyGeometryButton.onClick( function () {
+
+                const object = editor.selected;
+                if ( object === null || object.geometry === undefined ) return;
+
+                editor.copyGeometry( object.geometry );
+                pasteGeometryButton.setDisabled( editor.geometryClipboard === null );
+
+        } );
+
+        pasteGeometryButton.onClick( function () {
+
+                const object = editor.selected;
+                if ( object === null || editor.geometryClipboard === null ) return;
+
+                const geometry = editor.pasteGeometry( object );
+                if ( geometry === null ) return;
+
+                editor.execute( new SetGeometryCommand( editor, object, geometry ) );
+                pasteGeometryButton.setDisabled( editor.geometryClipboard === null );
+
+        } );
+
+        pasteGeometryButton.setDisabled( true );
+
+        geometryClipboardRow.add( new UIText( strings.getKey( 'sidebar/geometry/clipboard' ) ).setClass( 'Label' ) );
+        geometryClipboardRow.add( copyGeometryButton );
+        geometryClipboardRow.add( pasteGeometryButton );
+
+        container.add( geometryClipboardRow );
+
+	// selection mode
+
+	const selectionModeRow = new UIRow();
+	const selectionModeSelect = new UISelect()
+		.setWidth( '150px' )
+		.setFontSize( '12px' )
+		.setOptions( {
+			object: strings.getKey( 'sidebar/geometry/selection/object' ),
+			vertex: strings.getKey( 'sidebar/geometry/selection/vertex' ),
+			edge: strings.getKey( 'sidebar/geometry/selection/edge' ),
+			face: strings.getKey( 'sidebar/geometry/selection/face' )
+		} )
+		.setValue( editor.selectionMode )
+		.onChange( function () {
+
+			editor.setSelectionMode( selectionModeSelect.getValue() );
+
+		} );
+
+	selectionModeRow.add( new UIText( strings.getKey( 'sidebar/geometry/selection_mode' ) ).setClass( 'Label' ) );
+	selectionModeRow.add( selectionModeSelect );
+	container.add( selectionModeRow );
+
+	const selectionInfoRow = new UIRow();
+	const selectionInfo = new UIText( '-' ).setFontSize( '12px' );
+	selectionInfoRow.add( new UIText( strings.getKey( 'sidebar/geometry/selection_info' ) ).setClass( 'Label' ) );
+	selectionInfoRow.add( selectionInfo );
+	container.add( selectionInfoRow );
 
 	// parameters
 
@@ -250,7 +315,7 @@ function SidebarGeometry( editor ) {
 
 		const object = editor.selected;
 
-		if ( object && object.geometry ) {
+                if ( object && object.geometry ) {
 
 			const geometry = object.geometry;
 
@@ -259,7 +324,9 @@ function SidebarGeometry( editor ) {
 			geometryType.setValue( geometry.type );
 
 			geometryUUID.setValue( geometry.uuid );
-			geometryName.setValue( geometry.name );
+                        geometryName.setValue( geometry.name );
+
+                        pasteGeometryButton.setDisabled( editor.geometryClipboard === null );
 
 			//
 
@@ -307,19 +374,60 @@ function SidebarGeometry( editor ) {
 
 			}
 
-		} else {
+                } else {
 
-			container.setDisplay( 'none' );
+                        container.setDisplay( 'none' );
+                        pasteGeometryButton.setDisabled( true );
 
-		}
+                }
 
-	}
+        }
 
 	signals.objectSelected.add( function () {
 
 		currentGeometryType = null;
 
 		build();
+
+	} );
+
+	signals.selectionModeChanged.add( function ( mode ) {
+
+		selectionModeSelect.setValue( mode );
+
+	} );
+
+	signals.geometrySelectionChanged.add( function ( selection ) {
+
+		if ( selection === null ) {
+
+			selectionInfo.setValue( '-' );
+			return;
+
+		}
+
+		if ( selection.mode === 'vertex' ) {
+
+			selectionInfo.setValue( `#${selection.vertexIndex}` );
+			return;
+
+		}
+
+		if ( selection.mode === 'edge' ) {
+
+			selectionInfo.setValue( `${selection.edge[ 0 ]}-${selection.edge[ 1 ]}` );
+			return;
+
+		}
+
+		if ( selection.mode === 'face' ) {
+
+			selectionInfo.setValue( `#${selection.faceIndex}` );
+			return;
+
+		}
+
+		selectionInfo.setValue( '-' );
 
 	} );
 

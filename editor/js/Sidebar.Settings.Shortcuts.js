@@ -23,7 +23,18 @@ function SidebarSettingsShortcuts( editor ) {
 	headerRow.add( new UIText( strings.getKey( 'sidebar/settings/shortcuts' ).toUpperCase() ) );
 	container.add( headerRow );
 
-	const shortcuts = [ 'translate', 'rotate', 'scale', 'undo', 'focus' ];
+	const shortcuts = [
+		'translate',
+		'rotate',
+                'scale',
+                'undo',
+                'focus',
+                'commandTerminal',
+                'selectionObject',
+                'selectionVertex',
+                'selectionEdge',
+		'selectionFace'
+	];
 
 	function createShortcutInput( name ) {
 
@@ -161,6 +172,33 @@ function SidebarSettingsShortcuts( editor ) {
 					editor.focus( editor.selected );
 
 				}
+
+				break;
+			case config.getKey( 'settings/shortcuts/commandTerminal' ):
+				editor.toggleCommandTerminal();
+				break;
+
+			case config.getKey( 'settings/shortcuts/selectionObject' ):
+
+				editor.setSelectionMode( 'object' );
+
+				break;
+
+			case config.getKey( 'settings/shortcuts/selectionVertex' ):
+
+				editor.setSelectionMode( 'vertex' );
+
+				break;
+
+			case config.getKey( 'settings/shortcuts/selectionEdge' ):
+
+				editor.setSelectionMode( 'edge' );
+
+				break;
+
+			case config.getKey( 'settings/shortcuts/selectionFace' ):
+
+				editor.setSelectionMode( 'face' );
 
 				break;
 

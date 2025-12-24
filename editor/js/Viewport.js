@@ -8,6 +8,7 @@ import { EditorControls } from './EditorControls.js';
 
 import { ViewportControls } from './Viewport.Controls.js';
 import { ViewportInfo } from './Viewport.Info.js';
+import { ViewportCommandTerminal } from './Viewport.CommandTerminal.js';
 
 import { ViewHelper } from './Viewport.ViewHelper.js';
 import { XR } from './Viewport.XR.js';
@@ -24,12 +25,13 @@ function Viewport( editor ) {
 	const selector = editor.selector;
 	const signals = editor.signals;
 
-	const container = new UIPanel();
-	container.setId( 'viewport' );
-	container.setPosition( 'absolute' );
+        const container = new UIPanel();
+        container.setId( 'viewport' );
+        container.setPosition( 'absolute' );
 
-	container.add( new ViewportControls( editor ) );
-	container.add( new ViewportInfo( editor ) );
+        container.add( new ViewportControls( editor ) );
+        container.add( new ViewportInfo( editor ) );
+        container.add( new ViewportCommandTerminal( editor ) );
 
 	//
 
@@ -69,6 +71,25 @@ function Viewport( editor ) {
 	selectionBox.material.transparent = true;
 	selectionBox.visible = false;
 	sceneHelpers.add( selectionBox );
+
+	const selectionHelperGroup = new THREE.Group();
+	const selectionHelperVertex = new THREE.Points(
+		new THREE.BufferGeometry(),
+		new THREE.PointsMaterial( { color: 0xffcc00, size: 6, sizeAttenuation: false, depthTest: false } )
+	);
+	const selectionHelperEdge = new THREE.Line(
+		new THREE.BufferGeometry(),
+		new THREE.LineBasicMaterial( { color: 0xffcc00, depthTest: false } )
+	);
+	const selectionHelperFace = new THREE.Mesh(
+		new THREE.BufferGeometry(),
+		new THREE.MeshBasicMaterial( { color: 0xffcc00, opacity: 0.35, transparent: true, side: THREE.DoubleSide, depthTest: false } )
+	);
+	selectionHelperGroup.add( selectionHelperVertex, selectionHelperEdge, selectionHelperFace );
+	selectionHelperVertex.visible = false;
+	selectionHelperEdge.visible = false;
+	selectionHelperFace.visible = false;
+	sceneHelpers.add( selectionHelperGroup );
 
 	let objectPositionOnDown = null;
 	let objectRotationOnDown = null;
@@ -193,12 +214,164 @@ function Viewport( editor ) {
 
 		if ( onDownPosition.distanceTo( onUpPosition ) === 0 ) {
 
-			const intersects = selector.getPointerIntersects( onUpPosition, camera );
-			signals.intersectionsDetected.dispatch( intersects );
+			if ( editor.selectionMode === 'object' ) {
+
+				const intersects = selector.getPointerIntersects( onUpPosition, camera );
+				signals.intersectionsDetected.dispatch( intersects );
+
+			} else {
+
+				handleGeometrySelection();
+
+			}
 
 			render();
 
 		}
+
+	}
+
+	function handleGeometrySelection() {
+
+		// Raycasting pattern based on examples/webgl_raycaster_sprite.html.
+		const intersects = selector.getPointerIntersects( onUpPosition, camera );
+
+		if ( intersects.length === 0 ) {
+
+			editor.setGeometrySelection( null );
+			return;
+
+		}
+
+		let object = intersects[ 0 ].object;
+
+		if ( object.userData.object !== undefined ) {
+
+			object = object.userData.object;
+
+		}
+
+		if ( object.geometry === undefined || object.isMesh !== true ) {
+
+			editor.setGeometrySelection( null );
+			return;
+
+		}
+
+		if ( editor.ensureAxisFrame( object ) === undefined ) {
+
+			editor.setGeometrySelection( null );
+			return;
+
+		}
+
+		editor.select( object );
+
+		const geometry = object.geometry;
+		const positionAttribute = geometry.attributes.position;
+		const intersect = intersects[ 0 ];
+		const face = intersect.face;
+
+		if ( face === null || positionAttribute === undefined ) {
+
+			editor.setGeometrySelection( null );
+			return;
+
+		}
+
+		const indices = [ face.a, face.b, face.c ];
+		const selection = {
+			mode: editor.selectionMode,
+			object: object,
+			objectUuid: object.uuid,
+			faceIndex: intersect.faceIndex,
+			vertexIndices: indices
+		};
+
+		if ( editor.selectionMode === 'face' ) {
+
+			editor.setGeometrySelection( selection );
+			return;
+
+		}
+
+		const worldPoint = intersect.point.clone();
+		const vertex = new THREE.Vector3();
+		const closestVertex = new THREE.Vector3();
+		let closestIndex = indices[ 0 ];
+		let closestDistance = Infinity;
+
+		for ( let i = 0; i < indices.length; i ++ ) {
+
+			vertex.fromBufferAttribute( positionAttribute, indices[ i ] );
+			vertex.applyMatrix4( object.matrixWorld );
+
+			const distance = vertex.distanceTo( worldPoint );
+
+			if ( distance < closestDistance ) {
+
+				closestDistance = distance;
+				closestIndex = indices[ i ];
+				closestVertex.copy( vertex );
+
+			}
+
+		}
+
+		if ( editor.selectionMode === 'vertex' ) {
+
+			selection.vertexIndex = closestIndex;
+			selection.vertexPosition = closestVertex.toArray();
+			editor.setGeometrySelection( selection );
+			return;
+
+		}
+
+		const line = new THREE.Line3();
+		const closestPoint = new THREE.Vector3();
+		let closestEdge = [ indices[ 0 ], indices[ 1 ] ];
+		let closestEdgeDistance = Infinity;
+
+		for ( let i = 0; i < indices.length; i ++ ) {
+
+			const startIndex = indices[ i ];
+			const endIndex = indices[ ( i + 1 ) % indices.length ];
+
+			const start = new THREE.Vector3().fromBufferAttribute( positionAttribute, startIndex ).applyMatrix4( object.matrixWorld );
+			const end = new THREE.Vector3().fromBufferAttribute( positionAttribute, endIndex ).applyMatrix4( object.matrixWorld );
+
+			line.set( start, end );
+			line.closestPointToPoint( worldPoint, true, closestPoint );
+
+			const distance = closestPoint.distanceTo( worldPoint );
+
+			if ( distance < closestEdgeDistance ) {
+
+				closestEdgeDistance = distance;
+				closestEdge = [ startIndex, endIndex ];
+
+			}
+
+		}
+
+		selection.edge = closestEdge;
+		editor.setGeometrySelection( selection );
+
+	}
+
+	function clearGeometrySelectionHelper() {
+
+		selectionHelperVertex.visible = false;
+		selectionHelperEdge.visible = false;
+		selectionHelperFace.visible = false;
+
+		selectionHelperVertex.geometry.dispose();
+		selectionHelperEdge.geometry.dispose();
+		selectionHelperFace.geometry.dispose();
+
+		selectionHelperVertex.geometry = new THREE.BufferGeometry();
+		selectionHelperEdge.geometry = new THREE.BufferGeometry();
+		selectionHelperFace.geometry = new THREE.BufferGeometry();
 
 	}
 
@@ -410,6 +583,7 @@ function Viewport( editor ) {
 	signals.objectSelected.add( function ( object ) {
 
 		selectionBox.visible = false;
+		editor.setGeometrySelection( null );
 		transformControls.detach();
 
 		if ( object !== null && object !== scene && object !== camera ) {
@@ -438,6 +612,8 @@ function Viewport( editor ) {
 
 	signals.geometryChanged.add( function ( object ) {
 
+		editor.setGeometrySelection( null );
+
 		if ( object !== undefined ) {
 
 			box.setFromObject( object, true );
@@ -445,6 +621,70 @@ function Viewport( editor ) {
 		}
 
 		initPT();
+		render();
+
+	} );
+
+	signals.geometrySelectionChanged.add( function ( selection ) {
+
+		clearGeometrySelectionHelper();
+
+		if ( selection === null ) {
+
+			render();
+			return;
+
+		}
+
+		const object = selection.object;
+		const geometry = object.geometry;
+		const positionAttribute = geometry.attributes.position;
+
+		if ( positionAttribute === undefined ) return;
+
+		const vertex = new THREE.Vector3();
+
+		if ( selection.mode === 'vertex' ) {
+
+			vertex.fromBufferAttribute( positionAttribute, selection.vertexIndex );
+			vertex.applyMatrix4( object.matrixWorld );
+
+			selectionHelperVertex.geometry.setFromPoints( [ vertex ] );
+			selectionHelperVertex.visible = true;
+
+			render();
+			return;
+
+		}
+
+		if ( selection.mode === 'edge' ) {
+
+			const start = new THREE.Vector3().fromBufferAttribute( positionAttribute, selection.edge[ 0 ] ).applyMatrix4( object.matrixWorld );
+			const end = new THREE.Vector3().fromBufferAttribute( positionAttribute, selection.edge[ 1 ] ).applyMatrix4( object.matrixWorld );
+
+			selectionHelperEdge.geometry.setFromPoints( [ start, end ] );
+			selectionHelperEdge.visible = true;
+
+			render();
+			return;
+
+		}
+
+		if ( selection.mode === 'face' ) {
+
+			const points = selection.vertexIndices.map( ( index ) => {
+
+				return new THREE.Vector3().fromBufferAttribute( positionAttribute, index ).applyMatrix4( object.matrixWorld );
+
+			} );
+
+			const faceGeometry = selectionHelperFace.geometry;
+			faceGeometry.setFromPoints( points );
+			faceGeometry.setIndex( [ 0, 1, 2 ] );
+			selectionHelperFace.visible = true;
+
+		}
+
 		render();
 
 	} );
