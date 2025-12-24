@@ -4,6 +4,14 @@ import { Box2, ExtrudeGeometry, ShapeGeometry, Vector2 } from 'three';
 import { computeMikkTSpaceTangents, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as MikkTSpace from 'three/addons/libs/mikktspace.module.js';
 import { ArrayModifierCommand } from './commands/ArrayModifierCommand.js';
+import {
+        analyzeGeometry,
+        checkWatertight,
+        clearRepairHelpers,
+        highlightFloatingFaces,
+        mergeVerticesWithTolerance,
+        smoothNormalsByAngle
+} from './utils/GeometryRepair.js';
 
 function SidebarGeometryModifiers( editor, object ) {
 
@@ -142,6 +150,102 @@ function SidebarGeometryModifiers( editor, object ) {
         const mergeVerticesRow = new UIRow();
         mergeVerticesRow.add( mergeVerticesButton );
         container.add( mergeVerticesRow );
+
+        // Geometry repair + analysis (tolerance mirrors BufferGeometryUtils.mergeVertices default)
+
+        const repairHeaderRow = new UIRow();
+        repairHeaderRow.add( new UIText( strings.getKey( 'sidebar/geometry/repair' ) ) );
+        container.add( repairHeaderRow );
+
+        const toleranceRow = new UIRow();
+        const toleranceLabel = new UIText( strings.getKey( 'sidebar/geometry/repair/tolerance' ) ).setWidth( '90px' );
+        const toleranceInput = new UINumber( 0.0001 ).setPrecision( 6 ).setRange( 0.000001, 1 );
+        toleranceRow.add( toleranceLabel, toleranceInput );
+        container.add( toleranceRow );
+
+        const analyzeRow = new UIRow();
+        const analyzeButton = new UIButton( strings.getKey( 'sidebar/geometry/repair/analyze' ) );
+        analyzeButton.onClick( function () {
+
+                if ( ensureAxisFrame() === false ) return;
+
+                const report = analyzeGeometry( geometry );
+
+                if ( report ) console.info( 'Geometry analysis', report );
+
+        } );
+        analyzeRow.add( analyzeButton );
+        container.add( analyzeRow );
+
+        const mergeToleranceRow = new UIRow();
+        const mergeToleranceButton = new UIButton( strings.getKey( 'sidebar/geometry/repair/merge_tolerance' ) );
+        mergeToleranceButton.onClick( function () {
+
+                if ( ensureAxisFrame() === false ) return;
+
+                const merged = mergeVerticesWithTolerance( geometry, toleranceInput.getValue() );
+
+                if ( merged !== geometry ) object.geometry = merged;
+
+                signals.geometryChanged.dispatch( object );
+
+        } );
+        mergeToleranceRow.add( mergeToleranceButton );
+        container.add( mergeToleranceRow );
+
+        const watertightRow = new UIRow();
+        const watertightVisualize = new UICheckbox( true );
+        const watertightVisualizeLabel = new UIText( strings.getKey( 'sidebar/geometry/repair/visualize' ) );
+        const watertightButton = new UIButton( strings.getKey( 'sidebar/geometry/repair/check_watertight' ) );
+        watertightButton.onClick( function () {
+
+                if ( ensureAxisFrame() === false ) return;
+
+                const result = checkWatertight( editor, object, watertightVisualize.getValue() );
+
+                if ( result ) console.info( 'Watertight check', result );
+
+        } );
+        watertightRow.add( watertightButton, watertightVisualize, watertightVisualizeLabel );
+        container.add( watertightRow );
+
+        const floatingRow = new UIRow();
+        const floatingButton = new UIButton( strings.getKey( 'sidebar/geometry/repair/highlight_floating' ) );
+        floatingButton.onClick( function () {
+
+                if ( ensureAxisFrame() === false ) return;
+
+                highlightFloatingFaces( editor, object );
+
+        } );
+        floatingRow.add( floatingButton );
+        container.add( floatingRow );
+
+        const smoothRow = new UIRow();
+        const smoothButton = new UIButton( strings.getKey( 'sidebar/geometry/repair/smooth_normals' ) );
+        smoothButton.onClick( function () {
+
+                if ( ensureAxisFrame() === false ) return;
+
+                smoothNormalsByAngle( geometry );
+                signals.geometryChanged.dispatch( object );
+
+        } );
+        smoothRow.add( smoothButton );
+        container.add( smoothRow );
+
+        const clearRepairRow = new UIRow();
+        const clearRepairButton = new UIButton( strings.getKey( 'sidebar/geometry/repair/clear_helpers' ) );
+        clearRepairButton.onClick( function () {
+
+                if ( ensureAxisFrame() === false ) return;
+
+                const cleared = clearRepairHelpers( editor );
+                if ( cleared > 0 ) signals.sceneGraphChanged.dispatch();
+
+        } );
+        clearRepairRow.add( clearRepairButton );
+        container.add( clearRepairRow );
 
         // Spiral Array (polar placement mirrors the sin/cos offsets in examples/webgl_shadowmesh.html)
 

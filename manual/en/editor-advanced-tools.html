@@ -46,6 +46,17 @@
             <li><strong>Spiral array:</strong> clones the selected object into a sin/cos spiral that mirrors the polar offsets shown in <code>examples/webgl_shadowmesh.html</code> (the rotating torus/cube placements around lines 195–207), with controls for count, radius, height, angular step, and whether to rotate each clone outward. The helper still enforces <code>ensureAxisFrame()</code> before running.</li>
           </ul>
 
+          <h2>Repair and analysis helpers</h2>
+          <p>The same modifiers panel now ships with a “Repair &amp; Analysis” block that reuses <code>BufferGeometryUtils.mergeVertices()</code>’ tolerance-aware merge (as documented in <code>examples/jsm/utils/BufferGeometryUtils.js</code>, function <code>mergeVertices</code> around lines 644–741) and adds lightweight diagnostics:</p>
+          <ul>
+            <li><strong>Analyze geometry:</strong> reports vertex/face counts, attribute presence, and bounding box.</li>
+            <li><strong>Merge by tolerance:</strong> welds duplicates with a user-defined tolerance and recomputes normals/bounds.</li>
+            <li><strong>Watertight check:</strong> scans indexed edges, flags boundary edges, and optionally draws red <code>LineSegments</code> over holes.</li>
+            <li><strong>Highlight floating faces:</strong> draws yellow outlines for lightly connected faces so you can spot stray patches.</li>
+            <li><strong>Smooth normals:</strong> recomputes vertex normals after fixes.</li>
+            <li><strong>Clear visualizations:</strong> removes any temporary boundary or floating-face helpers added during checks.</li>
+          </ul>
+
           <h2>Geometry clipboard (copy / paste)</h2>
           <p>The Geometry sidebar exposes Copy and Paste buttons that mirror the editor&rsquo;s serialization pipeline. Copy stores <code>geometry.toJSON()</code> on an editor clipboard, and Paste reconstructs it through <code>ObjectLoader.parseGeometries()</code> before applying it with <code>SetGeometryCommand</code>.</p>
           <ul>
