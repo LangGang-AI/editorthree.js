@@ -6,6 +6,9 @@ import { History as _History } from './History.js';
 import { Strings } from './Strings.js';
 import { Storage as _Storage } from './Storage.js';
 import { Selector } from './Selector.js';
+import { RemoveObjectCommand } from './commands/RemoveObjectCommand.js';
+import { SetGeometryCommand } from './commands/SetGeometryCommand.js';
+import { SetPositionCommand } from './commands/SetPositionCommand.js';
 
 var _DEFAULT_CAMERA = new THREE.PerspectiveCamera( 50, 1, 0.01, 1000 );
 _DEFAULT_CAMERA.name = 'Camera';
@@ -92,9 +95,13 @@ function Editor() {
 
 		intersectionsDetected: new Signal(),
 
-		pathTracerUpdated: new Signal(),
+                pathTracerUpdated: new Signal(),
+                selectionModeChanged: new Signal(),
+                geometrySelectionChanged: new Signal(),
+                commandTerminalVisibilityChanged: new Signal(),
+                commandTerminalOutput: new Signal(),
 
-	};
+        };
 
 	this.config = new Config();
 	this.history = new _History( this );
@@ -122,10 +129,15 @@ function Editor() {
 
 	this.mixer = new THREE.AnimationMixer( this.scene );
 
-	this.selected = null;
-	this.helpers = {};
+        this.selected = null;
+        this.helpers = {};
+        this.selectionMode = 'object';
+        this.geometrySelection = null;
+        this.geometryClipboard = null;
+        this.commandTerminalVisible = false;
+        this.commandTerminalHistory = [];
 
-	this.cameras = {};
+        this.cameras = {};
 
 	this.viewportCamera = this.camera;
 	this.viewportShading = 'default';
@@ -166,11 +178,317 @@ Editor.prototype = {
 
 	//
 
+	ensureAxisFrame: function ( object ) {
+
+		if ( object.userData === undefined ) object.userData = {};
+
+		if ( object.userData.axisFrame === undefined ) {
+
+			object.userData.axisFrame = {
+				forward: { x: 0, y: 0, z: 1 },
+				up: { x: 0, y: 1, z: 0 },
+				right: { x: 1, y: 0, z: 0 },
+				origin: { x: 0, y: 0, z: 0 }
+			};
+
+		}
+
+		return object.userData.axisFrame;
+
+	},
+
+	//
+	setSelectionMode: function ( mode ) {
+
+		this.selectionMode = mode;
+		this.signals.selectionModeChanged.dispatch( mode );
+
+		if ( mode === 'object' ) {
+
+			this.setGeometrySelection( null );
+
+		}
+
+	},
+
+        setGeometrySelection: function ( selection ) {
+
+                this.geometrySelection = selection;
+                this.signals.geometrySelectionChanged.dispatch( selection );
+
+        },
+
+        copyGeometry: function ( geometry ) {
+
+                // Mirrors the SetGeometryCommand.fromJSON geometry parse path (ObjectLoader.parseGeometries)
+                // to keep clipboard reconstruction consistent with editor serialization.
+                this.geometryClipboard = geometry.toJSON();
+
+        },
+
+        pasteGeometry: function ( targetObject ) {
+
+                if ( this.geometryClipboard === null ) return null;
+
+                const loader = new THREE.ObjectLoader();
+                const parsed = loader.parseGeometries( [ this.geometryClipboard ] )[ this.geometryClipboard.uuid ];
+                const geometry = parsed.clone();
+                geometry.uuid = THREE.MathUtils.generateUUID();
+
+                if ( targetObject.geometry && targetObject.geometry.name ) geometry.name = targetObject.geometry.name;
+
+                return geometry;
+
+        },
+
+        toggleCommandTerminal: function ( visible ) {
+
+                const nextVisibility = ( visible !== undefined ) ? visible : ! this.commandTerminalVisible;
+                this.commandTerminalVisible = nextVisibility;
+                this.signals.commandTerminalVisibilityChanged.dispatch( nextVisibility );
+
+        },
+
+        runCommandTerminal: function ( input ) {
+
+                const sanitized = input.trim();
+
+                if ( sanitized === '' ) return null;
+
+                this.commandTerminalHistory.push( sanitized );
+
+                if ( this.commandTerminalHistory.length > 50 ) {
+
+                        this.commandTerminalHistory.shift();
+
+                }
+
+                const result = this.parseCommandTerminal( sanitized );
+
+                this.signals.commandTerminalOutput.dispatch( result );
+
+                return result;
+
+        },
+
+        parseCommandTerminal: function ( input ) {
+
+                const result = { input: input, status: 'ok', message: '' };
+                const tokens = input.split( /\s+/ );
+                const command = tokens.shift().toLowerCase();
+
+                const strings = this.strings;
+
+                switch ( command ) {
+
+                        case 'help':
+
+                                result.message = strings.getKey( 'viewport/command/help' );
+                                break;
+
+                        case 'select': {
+
+                                const query = tokens.join( ' ' );
+
+                                if ( query === '' ) {
+
+                                        result.status = 'error';
+                                        result.message = strings.getKey( 'viewport/command/error/select' ).replace( '{query}', query );
+                                        break;
+
+                                }
+
+                                let target = this.scene.getObjectByName( query );
+
+                                if ( target === undefined ) {
+
+                                        target = this.objectByUuid( query );
+
+                                }
+
+                                if ( target === undefined ) {
+
+                                        result.status = 'error';
+                                        result.message = strings.getKey( 'viewport/command/error/select' ).replace( '{query}', query );
+                                        break;
+
+                                }
+
+                                this.ensureAxisFrame( target );
+                                this.select( target );
+                                result.message = strings.getKey( 'viewport/command/result/selected' ).replace( '{name}', target.name || target.uuid );
+                                break;
+
+                        }
+
+                        case 'delete':
+                        case 'del': {
+
+                                const selected = this.selected;
+
+                                if ( selected === null ) {
+
+                                        result.status = 'error';
+                                        result.message = strings.getKey( 'viewport/command/error/selection_required' );
+                                        break;
+
+                                }
+
+                                this.ensureAxisFrame( selected );
+                                this.execute( new RemoveObjectCommand( this, selected ) );
+                                result.message = strings.getKey( 'viewport/command/result/deleted' ).replace( '{name}', selected.name || selected.uuid );
+                                break;
+
+                        }
+
+                        case 'focus': {
+
+                                const selected = this.selected;
+
+                                if ( selected === null ) {
+
+                                        result.status = 'error';
+                                        result.message = strings.getKey( 'viewport/command/error/selection_required' );
+                                        break;
+
+                                }
+
+                                this.ensureAxisFrame( selected );
+                                this.focus( selected );
+                                result.message = strings.getKey( 'viewport/command/result/focused' ).replace( '{name}', selected.name || selected.uuid );
+                                break;
+
+                        }
+
+                        case 'mode': {
+
+                                if ( tokens.length === 0 ) {
+
+                                        result.status = 'error';
+                                        result.message = strings.getKey( 'viewport/command/error/mode' );
+                                        break;
+
+                                }
+
+                                const mode = tokens[ 0 ].toLowerCase();
+                                const allowedModes = [ 'object', 'vertex', 'edge', 'face' ];
+
+                                if ( allowedModes.includes( mode ) === false ) {
+
+                                        result.status = 'error';
+                                        result.message = strings.getKey( 'viewport/command/error/mode' );
+                                        break;
+
+                                }
+
+                                this.setSelectionMode( mode );
+                                result.message = strings.getKey( 'viewport/command/result/mode' ).replace( '{mode}', mode );
+                                break;
+
+                        }
+
+                        case 'move': {
+
+                                if ( tokens.length !== 3 || tokens.some( ( token ) => isNaN( parseFloat( token ) ) ) ) {
+
+                                        result.status = 'error';
+                                        result.message = strings.getKey( 'viewport/command/error/move_arguments' );
+                                        break;
+
+                                }
+
+                                const selected = this.selected;
+
+                                if ( selected === null ) {
+
+                                        result.status = 'error';
+                                        result.message = strings.getKey( 'viewport/command/error/selection_required' );
+                                        break;
+
+                                }
+
+                                this.ensureAxisFrame( selected );
+
+                                const position = new THREE.Vector3( parseFloat( tokens[ 0 ] ), parseFloat( tokens[ 1 ] ), parseFloat( tokens[ 2 ] ) );
+
+                                this.execute( new SetPositionCommand( this, selected, position, selected.position.clone() ) );
+
+                                const formatted = `${this.utils.formatNumber( position.x )}, ${this.utils.formatNumber( position.y )}, ${this.utils.formatNumber( position.z )}`;
+                                result.message = strings.getKey( 'viewport/command/result/moved' ).replace( '{position}', formatted );
+                                break;
+
+                        }
+
+                        case 'copygeom':
+                        case 'copygeometry': {
+
+                                const selected = this.selected;
+
+                                if ( selected === null || selected.geometry === undefined ) {
+
+                                        result.status = 'error';
+                                        result.message = strings.getKey( 'viewport/command/error/selection_required' );
+                                        break;
+
+                                }
+
+                                this.ensureAxisFrame( selected );
+                                this.copyGeometry( selected.geometry );
+                                result.message = strings.getKey( 'viewport/command/result/copied' ).replace( '{name}', selected.name || selected.uuid );
+                                break;
+
+                        }
+
+                        case 'pastegeom':
+                        case 'pastegeometry': {
+
+                                const selected = this.selected;
+
+                                if ( selected === null || selected.geometry === undefined ) {
+
+                                        result.status = 'error';
+                                        result.message = strings.getKey( 'viewport/command/error/selection_required' );
+                                        break;
+
+                                }
+
+                                if ( this.geometryClipboard === null ) {
+
+                                        result.status = 'error';
+                                        result.message = strings.getKey( 'viewport/command/error/geometry_clipboard' );
+                                        break;
+
+                                }
+
+                                const geometry = this.pasteGeometry( selected );
+                                this.ensureAxisFrame( selected );
+                                this.execute( new SetGeometryCommand( this, selected, geometry ) );
+                                result.message = strings.getKey( 'viewport/command/result/pasted' ).replace( '{name}', selected.name || selected.uuid );
+                                break;
+
+                        }
+
+                        default:
+
+                                result.status = 'error';
+                                result.message = strings.getKey( 'viewport/command/error/unknown' ).replace( '{command}', command );
+                                break;
+
+                }
+
+                return result;
+
+        },
+
+        //
+
 	addObject: function ( object, parent, index ) {
 
 		var scope = this;
 
 		object.traverse( function ( child ) {
+
+			scope.ensureAxisFrame( child );
 
 			if ( child.geometry !== undefined ) scope.addGeometry( child.geometry );
 			if ( child.material !== undefined ) scope.addMaterial( child.material );
@@ -623,12 +941,15 @@ Editor.prototype = {
 		this.signals.cameraResetted.dispatch();
 
 		this.scene.name = 'Scene';
-		this.scene.userData = {};
-		this.scene.background = null;
-		this.scene.environment = null;
-		this.scene.fog = null;
+                this.scene.userData = {};
+                this.scene.background = null;
+                this.scene.environment = null;
+                this.scene.fog = null;
 
-		var objects = this.scene.children;
+                this.commandTerminalHistory = [];
+                this.toggleCommandTerminal( false );
+
+                var objects = this.scene.children;
 
 		this.signals.sceneGraphChanged.active = false;
 

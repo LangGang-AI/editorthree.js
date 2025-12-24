@@ -102,7 +102,7 @@ function SidebarProjectVideo( editor ) {
 		status.appendChild( writeFileStatus );
 
 		const encodingText = document.createElement( 'span' );
-		encodingText.textContent = ' encoding'; // TODO: l10n
+		encodingText.textContent = ' ' + strings.getKey( 'sidebar/project/video/encoding' );
 		encodingText.hidden = true;
 		status.appendChild( encodingText );
 
@@ -111,7 +111,7 @@ function SidebarProjectVideo( editor ) {
 		status.appendChild( encodingStatus );
 
 		const videoSizeText = document.createElement( 'span' );
-		videoSizeText.textContent = ' size'; // TODO: l10n
+		videoSizeText.textContent = ' ' + strings.getKey( 'sidebar/project/video/size' );
 		videoSizeText.hidden = true;
 		status.appendChild( videoSizeText );
 
@@ -186,7 +186,7 @@ function SidebarProjectVideo( editor ) {
 
 			}
 
-			encodingText.hidden = false;
+		encodingText.hidden = false;
 			encodingStatus.hidden = false;
 
 			await ffmpeg.run( '-framerate', String( fps ), '-pattern_type', 'glob', '-i', '*.png', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'slow', '-crf', String( 5 ), 'out.mp4' );
@@ -204,7 +204,7 @@ function SidebarProjectVideo( editor ) {
 
 			output.document.body.removeChild( canvas );
 
-			videoSizeText.hidden = false;
+		videoSizeText.hidden = false;
 			videoSizeStatus.textContent = `( ${ formatFileSize( videoData.buffer.byteLength ) } )`;
 			videoSizeStatus.hidden = false;
 

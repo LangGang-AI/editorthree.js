@@ -476,45 +476,22 @@ function SidebarMaterial( editor ) {
 
 			if ( material.type !== materialClass.getValue() ) {
 
+				const previousMaterial = material;
+
 				material = new materialClasses[ materialClass.getValue() ]();
 
 				if ( material.type === 'RawShaderMaterial' ) {
-
 					material.vertexShader = vertexShaderVariables + material.vertexShader;
 
 				}
 
-				const currentMaterial = currentObject.material;
+				if ( material.type === 'MeshPhysicalMaterial' && previousMaterial.type === 'MeshStandardMaterial' ) {
 
-				if ( material.type === 'MeshPhysicalMaterial' && currentMaterial.type === 'MeshStandardMaterial' ) {
-
-					// TODO Find a easier to maintain approach
-
-					const properties = [
-						'color', 'emissive', 'roughness', 'metalness', 'map', 'emissiveMap', 'alphaMap',
-						'bumpMap', 'normalMap', 'normalScale', 'displacementMap', 'roughnessMap', 'metalnessMap',
-						'envMap', 'lightMap', 'aoMap', 'side'
-					];
-
-					for ( const property of properties ) {
-
-						const value = currentMaterial[ property ];
-
-						if ( value === null ) continue;
-
-						if ( value[ 'clone' ] !== undefined ) {
-
-							material[ property ] = value.clone();
-
-						} else {
-
-							material[ property ] = value;
-
-						}
-
-					}
+					material.copy( previousMaterial );
 
 				}
+
+				const currentMaterial = currentObject.material;
 
 				if ( Array.isArray( currentMaterial ) ) {
 
@@ -530,11 +507,8 @@ function SidebarMaterial( editor ) {
 
 				editor.execute( new SetMaterialCommand( editor, currentObject, material, currentMaterialSlot ), strings.getKey( 'command/SetMaterial' ) + ': ' + materialClass.getValue() );
 				editor.addMaterial( material );
-				// TODO Copy other references in the scene graph
-				// keeping name and UUID then.
-				// Also there should be means to create a unique
-				// copy for the current object explicitly and to
-				// attach the current material to other objects.
+
+				replaceMaterialReferences( previousMaterial, material );
 
 			}
 
@@ -556,6 +530,34 @@ function SidebarMaterial( editor ) {
 			refreshUI();
 
 		}
+
+	function replaceMaterialReferences( targetMaterial, replacement ) {
+
+		editor.scene.traverse( function ( node ) {
+
+			if ( node === currentObject || node.material === undefined ) return;
+
+			if ( Array.isArray( node.material ) ) {
+
+				for ( let i = 0; i < node.material.length; i ++ ) {
+
+					if ( node.material[ i ] !== targetMaterial ) continue;
+
+					editor.removeMaterial( targetMaterial );
+					editor.execute( new SetMaterialCommand( editor, node, replacement, i ), strings.getKey( 'command/SetMaterial' ) + ': ' + replacement.type );
+					editor.addMaterial( replacement );
+
+				}
+
+			} else if ( node.material === targetMaterial ) {
+
+				editor.removeMaterial( targetMaterial );
+				editor.execute( new SetMaterialCommand( editor, node, replacement ), strings.getKey( 'command/SetMaterial' ) + ': ' + replacement.type );
+				editor.addMaterial( replacement );
+
+			}
+
+		} );
 
 	}
 

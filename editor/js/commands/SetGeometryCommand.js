@@ -25,6 +25,8 @@ class SetGeometryCommand extends Command {
 
 	execute() {
 
+		this.editor.ensureAxisFrame( this.object );
+
 		this.object.geometry.dispose();
 		this.object.geometry = this.newGeometry;
 		this.object.geometry.computeBoundingSphere();
@@ -35,6 +37,8 @@ class SetGeometryCommand extends Command {
 	}
 
 	undo() {
+
+		this.editor.ensureAxisFrame( this.object );
 
 		this.object.geometry.dispose();
 		this.object.geometry = this.oldGeometry;

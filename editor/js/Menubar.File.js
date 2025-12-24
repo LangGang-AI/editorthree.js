@@ -260,8 +260,7 @@ function MenubarFile( editor ) {
 			exportColor: object.geometry.hasAttribute( 'color' )
 		};
 
-		// TODO: Change to DRACOExporter's parse( geometry, onParse )?
-		const result = exporter.parse( object, options );
+const result = exporter.parse( object, options );
 		saveArrayBuffer( result, 'model.drc' );
 
 	} );

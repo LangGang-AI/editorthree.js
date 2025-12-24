@@ -59,6 +59,7 @@
 			"Load an .OBJ file": "en/load-obj",
 			"Load a .GLTF file": "en/load-gltf",
 			"Add a Background or Skybox": "en/backgrounds",
+			"Editor Advanced Tools": "en/editor-advanced-tools",
 			"How to Draw Transparent Objects": "en/transparency",
 			"Multiple Canvases, Multiple Scenes": "en/multiple-scenes",
 			"Picking Objects with the mouse": "en/picking",

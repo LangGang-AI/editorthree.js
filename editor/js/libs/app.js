@@ -3,7 +3,9 @@ var APP = {
 	Player: function () {
 
 		var renderer = new THREE.WebGLRenderer( { antialias: true } );
-		renderer.setPixelRatio( window.devicePixelRatio ); // TODO: Use player.setPixelRatio()
+		this.setPixelRatio( window.devicePixelRatio );
+
+		const clock = new THREE.Clock();
 
 		var loader = new THREE.ObjectLoader();
 		var camera, scene;
@@ -159,13 +161,13 @@ var APP = {
 
 			}
 
-			renderer.render( scene, camera );
+		renderer.render( scene, camera );
 
 			prevTime = time;
 
 		}
 
-		this.play = function () {
+this.play = function () {
 
 			startTime = prevTime = performance.now();
 
@@ -177,11 +179,12 @@ var APP = {
 
 			dispatch( events.start, arguments );
 
+			clock.start();
 			renderer.setAnimationLoop( animate );
 
-		};
+};
 
-		this.stop = function () {
+this.stop = function () {
 
 			document.removeEventListener( 'keydown', onKeyDown );
 			document.removeEventListener( 'keyup', onKeyUp );
@@ -191,15 +194,18 @@ var APP = {
 
 			dispatch( events.stop, arguments );
 
+			clock.stop();
 			renderer.setAnimationLoop( null );
 
 		};
 
-		this.render = function ( time ) {
+this.render = function ( time ) {
 
-			dispatch( events.update, { time: time * 1000, delta: 0 /* TODO */ } );
+		const delta = clock.getDelta();
 
-			renderer.render( scene, camera );
+		dispatch( events.update, { time: time / 1000, delta: delta } );
+
+		renderer.render( scene, camera );
 
 		};
 

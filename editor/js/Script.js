@@ -56,10 +56,11 @@ function Script( editor ) {
 	} );
 
 
-	let delay;
-	let currentMode;
-	let currentScript;
-	let currentObject;
+let delay;
+let currentMode;
+let currentScript;
+let currentObject;
+let currentMaterialSlot = 0;
 
 	const codemirror = CodeMirror( container.dom, {
 		value: '',
@@ -220,11 +221,15 @@ function Script( editor ) {
 
 					break;
 
-				case 'glsl':
+case 'glsl':
 
-					currentObject.material[ currentScript ] = string;
-					currentObject.material.needsUpdate = true;
-					signals.materialChanged.dispatch( currentObject, 0 ); // TODO: Add multi-material support
+					const material = editor.getObjectMaterial( currentObject, currentMaterialSlot );
+					
+					if ( material === undefined ) return;
+					
+					material[ currentScript ] = string;
+					material.needsUpdate = true;
+					signals.materialChanged.dispatch( currentObject, currentMaterialSlot );
 
 					const programs = renderer.info.programs;
 
@@ -235,8 +240,8 @@ function Script( editor ) {
 
 						const diagnostics = programs[ i ].diagnostics;
 
-						if ( diagnostics === undefined ||
-								diagnostics.material !== currentObject.material ) continue;
+if ( diagnostics === undefined ||
+diagnostics.material !== material ) continue;
 
 						if ( ! diagnostics.runnable ) valid = false;
 
@@ -368,21 +373,25 @@ function Script( editor ) {
 
 		} else {
 
+			const material = editor.getObjectMaterial( object, currentMaterialSlot );
+
+			if ( material === undefined ) return;
+
 			switch ( script ) {
 
 				case 'vertexShader':
 
-					title.setValue( object.material.name + ' / ' + strings.getKey( 'script/title/vertexShader' ) );
+					title.setValue( material.name + ' / ' + strings.getKey( 'script/title/vertexShader' ) );
 					break;
 
 				case 'fragmentShader':
 
-					title.setValue( object.material.name + ' / ' + strings.getKey( 'script/title/fragmentShader' ) );
+					title.setValue( material.name + ' / ' + strings.getKey( 'script/title/fragmentShader' ) );
 					break;
 
 				case 'programInfo':
 
-					title.setValue( object.material.name + ' / ' + strings.getKey( 'script/title/programInfo' ) );
+					title.setValue( material.name + ' / ' + strings.getKey( 'script/title/programInfo' ) );
 					break;
 
 				default:
@@ -395,7 +404,7 @@ function Script( editor ) {
 
 	}
 
-	signals.editScript.add( function ( object, script ) {
+	signals.editScript.add( function ( object, script, materialSlot = 0 ) {
 
 		let mode, source;
 
@@ -406,19 +415,23 @@ function Script( editor ) {
 
 		} else {
 
+			const material = editor.getObjectMaterial( object, materialSlot );
+
+			if ( material === undefined ) return;
+
 			switch ( script ) {
 
 				case 'vertexShader':
 
 					mode = 'glsl';
-					source = object.material.vertexShader || '';
+					source = material.vertexShader || '';
 
 					break;
 
 				case 'fragmentShader':
 
 					mode = 'glsl';
-					source = object.material.fragmentShader || '';
+					source = material.fragmentShader || '';
 
 					break;
 
@@ -426,10 +439,75 @@ function Script( editor ) {
 
 					mode = 'json';
 					const json = {
-						defines: object.material.defines,
-						uniforms: object.material.uniforms,
-						attributes: object.material.attributes
+						defines: material.defines,
+						uniforms: material.uniforms,
+						attributes: material.attributes
 					};
+					source = JSON.stringify( json, null, '\t' );
+
+					break;
+
+				default:
+
+					throw new Error( 'editScript: Unknown script' );
+
+			}
+
+		}
+
+		setTitle( object, script );
+
+		currentMode = mode;
+		currentScript = script;
+		currentObject = object;
+		currentMaterialSlot = materialSlot;
+
+		container.setDisplay( '' );
+		codemirror.setValue( source );
+		codemirror.clearHistory();
+		if ( mode === 'json' ) mode = { name: 'javascript', json: true };
+		codemirror.setOption( 'mode', mode );
+
+	} );
+signals.editScript.add( function ( object, script, materialSlot = 0 ) {
+
+let mode, source;
+
+if ( typeof ( script ) === 'object' ) {
+
+			mode = 'javascript';
+			source = script.source;
+
+} else {
+
+const material = editor.getObjectMaterial( object, materialSlot );
+
+if ( material === undefined ) return;
+
+switch ( script ) {
+
+case 'vertexShader':
+
+mode = 'glsl';
+source = material.vertexShader || '';
+
+break;
+
+case 'fragmentShader':
+
+mode = 'glsl';
+source = material.fragmentShader || '';
+
+break;
+
+case 'programInfo':
+
+mode = 'json';
+const json = {
+defines: material.defines,
+uniforms: material.uniforms,
+attributes: material.attributes
+};
 					source = JSON.stringify( json, null, '\t' );
 
 					break;
@@ -486,15 +564,14 @@ function Script( editor ) {
 
 	} );
 
-	signals.materialChanged.add( function ( object/*, slot */ ) {
+signals.materialChanged.add( function ( object, slot ) {
 
-		if ( object !== currentObject ) return;
+if ( object !== currentObject ) return;
+if ( slot !== undefined && slot !== currentMaterialSlot ) return;
 
-		// TODO: Adds multi-material support
+setTitle( currentObject, currentScript );
 
-		setTitle( currentObject, currentScript );
-
-	} );
+} );
 
 	return container;
 

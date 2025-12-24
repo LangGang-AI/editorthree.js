@@ -19,23 +19,31 @@ function ViewportInfo( editor ) {
 	const trianglesText = new UIText( '0' ).setTextAlign( 'right' ).setWidth( '60px' ).setMarginRight( '6px' );
 	const frametimeText = new UIText( '0' ).setTextAlign( 'right' ).setWidth( '60px' ).setMarginRight( '6px' );
 	const samplesText = new UIText( '0' ).setTextAlign( 'right' ).setWidth( '60px' ).setMarginRight( '6px' ).setHidden( true );
+	const selectionModeText = new UIText( '-' ).setTextAlign( 'right' ).setWidth( '60px' ).setMarginRight( '6px' );
+	const selectionInfoText = new UIText( '-' ).setTextAlign( 'right' ).setWidth( '60px' ).setMarginRight( '6px' );
 
 	const objectsUnitText = new UIText( strings.getKey( 'viewport/info/objects' ) );
 	const verticesUnitText = new UIText( strings.getKey( 'viewport/info/vertices' ) );
 	const trianglesUnitText = new UIText( strings.getKey( 'viewport/info/triangles' ) );
 	const samplesUnitText = new UIText( strings.getKey( 'viewport/info/samples' ) ).setHidden( true );
+	const selectionModeUnitText = new UIText( strings.getKey( 'viewport/info/selection_mode' ) );
+	const selectionInfoUnitText = new UIText( strings.getKey( 'viewport/info/selection' ) );
 
 	container.add( objectsText, objectsUnitText, new UIBreak() );
 	container.add( verticesText, verticesUnitText, new UIBreak() );
 	container.add( trianglesText, trianglesUnitText, new UIBreak() );
 	container.add( frametimeText, new UIText( strings.getKey( 'viewport/info/rendertime' ) ), new UIBreak() );
 	container.add( samplesText, samplesUnitText, new UIBreak() );
+	container.add( selectionModeText, selectionModeUnitText, new UIBreak() );
+	container.add( selectionInfoText, selectionInfoUnitText, new UIBreak() );
 
 	signals.objectAdded.add( update );
 	signals.objectRemoved.add( update );
 	signals.objectChanged.add( update );
 	signals.geometryChanged.add( update );
 	signals.sceneRendered.add( updateFrametime );
+	signals.selectionModeChanged.add( updateSelectionMode );
+	signals.geometrySelectionChanged.add( updateSelectionInfo );
 
 	//
 
@@ -113,6 +121,48 @@ function ViewportInfo( editor ) {
 
 	}
 
+	function updateSelectionMode() {
+
+		const mode = editor.selectionMode;
+		const key = `sidebar/geometry/selection/${mode}`;
+		selectionModeText.setValue( strings.getKey( key ) );
+
+	}
+
+	function updateSelectionInfo( selection ) {
+
+		if ( selection === null ) {
+
+			selectionInfoText.setValue( '-' );
+			return;
+
+		}
+
+		if ( selection.mode === 'vertex' ) {
+
+			selectionInfoText.setValue( `#${selection.vertexIndex}` );
+			return;
+
+		}
+
+		if ( selection.mode === 'edge' ) {
+
+			selectionInfoText.setValue( `${selection.edge[ 0 ]}-${selection.edge[ 1 ]}` );
+			return;
+
+		}
+
+		if ( selection.mode === 'face' ) {
+
+			selectionInfoText.setValue( `#${selection.faceIndex}` );
+			return;
+
+		}
+
+		selectionInfoText.setValue( '-' );
+
+	}
+
 	//
 
 	editor.signals.pathTracerUpdated.add( function ( samples ) {
@@ -136,6 +186,9 @@ function ViewportInfo( editor ) {
 		container.setBottom( isRealisticShading ? '32px' : '20px' );
 
 	} );
+
+	updateSelectionMode();
+	updateSelectionInfo( editor.geometrySelection );
 
 	return container;
 

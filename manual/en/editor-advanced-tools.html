@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head>
+    <meta charset="utf-8">
+    <title>Editor Advanced Tools</title>
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@threejs">
+    <meta name="twitter:title" content="Three.js – Editor Advanced Tools">
+    <meta property="og:image" content="https://threejs.org/files/share.png">
+    <link rel="shortcut icon" href="../../files/favicon_white.ico" media="(prefers-color-scheme: dark)">
+    <link rel="shortcut icon" href="../../files/favicon.ico" media="(prefers-color-scheme: light)">
+
+    <link rel="stylesheet" href="../resources/lesson.css">
+    <link rel="stylesheet" href="../resources/lang.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "../../build/three.module.js"
+  }
+}
+</script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="lesson-title">
+        <h1>Editor Advanced Tools</h1>
+      </div>
+      <div class="lesson">
+        <div class="lesson-main">
+          <p>This page documents the advanced modeling and control features recently added to the editor: the selection modes, modeling utilities, geometry clipboard, and command terminal overlay.</p>
+
+          <h2>Selection modes and overlays</h2>
+          <p>The Geometry sidebar now exposes an explicit selection mode switcher (object, vertex, edge, face) and a live selection info label. The viewport overlay mirrors that state so you can see the current mode and any picked element indices.</p>
+          <ul>
+            <li><strong>Sidebar controls:</strong> the selector and info rows live alongside geometry metadata, reusing the same UI flow as the rest of the Geometry panel.</li>
+            <li><strong>Viewport overlay:</strong> the info box shows the active mode and the selected vertex, edge, or face index whenever geometry picking is active.</li>
+          </ul>
+
+          <h2>Modeling utilities (Bounding volumes, insets, extrudes, and merge vertices)</h2>
+          <p>The Geometry modifiers panel adds ready-to-run modeling helpers. Each button checks for an AxisFrame before mutating geometry and follows the same in-place signal dispatch as the existing normals/tangents tools.</p>
+          <ul>
+            <li><strong>Compute bounding box:</strong> runs <code>BufferGeometry.computeBoundingBox()</code>, following the usage shown in <code>examples/webgl_geometry_text_shapes.html</code>.</li>
+            <li><strong>Compute bounding sphere:</strong> runs <code>BufferGeometry.computeBoundingSphere()</code> as in <code>examples/webgl_buffergeometry_drawrange.html</code>.</li>
+            <li><strong>Inset shape:</strong> rebuilds <code>ShapeGeometry</code> instances from their stored <code>shapes</code> array (same pattern as <code>examples/webgl_geometry_shapes.html</code>) and scales them toward the center to create an inset shell.</li>
+            <li><strong>Extrude shape:</strong> applies <code>ExtrudeGeometry</code> with the beveled settings lifted from the third extrude block in <code>examples/webgl_geometry_extrude_shapes.html</code> (depth 20, bevel enabled, thickness 2, size 4, 1 step/segment).</li>
+            <li><strong>Merge vertices:</strong> reuses <code>BufferGeometryUtils.mergeVertices()</code> the same way it appears in <code>examples/webgl_custom_attributes_points3.html</code> to weld duplicate vertices.</li>
+          </ul>
+
+          <h2>Geometry clipboard (copy / paste)</h2>
+          <p>The Geometry sidebar exposes Copy and Paste buttons that mirror the editor&rsquo;s serialization pipeline. Copy stores <code>geometry.toJSON()</code> on an editor clipboard, and Paste reconstructs it through <code>ObjectLoader.parseGeometries()</code> before applying it with <code>SetGeometryCommand</code>.</p>
+          <ul>
+            <li>The Paste button only enables when clipboard data exists and applies the reconstructed geometry back to the selected object.</li>
+            <li>The command pipeline keeps undo/redo history consistent with other geometry edits.</li>
+          </ul>
+
+          <h2>Command terminal overlay</h2>
+          <p>An AutoCAD-like command terminal sits next to the viewport info overlay. It uses the same floating panel layout pattern and hooks into editor commands with AxisFrame preconditions before touching selection or geometry.</p>
+          <ul>
+            <li><strong>Overlay behavior:</strong> toggle visibility, type commands, and browse history with the arrow keys. Output lines are preserved up to 50 entries.</li>
+            <li><strong>Supported commands:</strong> <code>help</code>, <code>select</code> (by name or UUID), <code>delete</code>/<code>del</code>, <code>focus</code>, <code>mode</code> (object/vertex/edge/face), <code>move</code> (<em>x y z</em>), <code>copygeom</code>, and <code>pastegeom</code>.</li>
+            <li><strong>Preconditions:</strong> operations like select, delete, move, copy, and paste call <code>ensureAxisFrame()</code> before executing commands, matching the broader AxisFrame requirement.</li>
+          </ul>
+
+          <p>These tools are designed to stay aligned with existing editor patterns: they reuse Sidebar row layouts, the viewport overlay pattern, the command/undo system, and BufferGeometryUtils helpers pulled directly from documented three.js examples.</p>
+        </div>
+      </div>
+    </div>
+
+  <script src="../resources/prettify.js"></script>
+  <script src="../resources/lesson.js"></script>
+
+
+
+
+</body></html>

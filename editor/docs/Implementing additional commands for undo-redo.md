@@ -28,13 +28,16 @@ Every command needs a constructor. In the constructor
 
 function DoSomethingCommand( editor ) {
 
-	Command.call( this, editor ); // Required: Call default constructor
+        Command.call( this, editor ); // Required: Call default constructor
 
-	this.type = 'DoSomethingCommand';            // Required: has to match the object-name!
-	this.name = 'Set/Do/Update Something'; // Required: description of the command, used in Sidebar.History
+        this.type = 'DoSomethingCommand';            // Required: has to match the object-name!
+        this.name = 'Set/Do/Update Something'; // Required: description of the command, used in Sidebar.History
 
-	// TODO: store all the relevant information needed to
-	// restore the old and the new state
+        // Follow existing commands (e.g. editor/js/commands/SetPositionCommand.js):
+        // - store the target object reference (and its uuid for serialization)
+        // - capture the old value(s)
+        // - capture the new value(s)
+        // Example: this.object = object; this.oldValue = object.position.clone(); this.newValue = newPosition.clone();
 
 }
 ```
@@ -48,36 +51,46 @@ And as part of the prototype you need to implement four functions
 ```javascript
 DoSomethingCommand.prototype = {
 
-	execute: function () {
+        execute: function () {
 
-		// TODO: apply changes to 'object' to reach the new state
+                // Apply the new state like SetPositionCommand.execute:
+                // - assign the new value(s)
+                // - update any derived transforms if needed (e.g., object.updateMatrixWorld( true ))
+                // - dispatch editor signals (this.editor.signals.objectChanged) so the UI refreshes
 
-	},
+        },
 
-	undo: function () {
+        undo: function () {
 
-		// TODO: restore 'object' to old state
+                // Revert to the old state mirroring execute but using oldValue.
+                // Pattern: SetPositionCommand.undo assigns the stored vector and dispatches signals.
 
-	},
+        },
 
-	toJSON: function () {
+        toJSON: function () {
 
-		var output = Command.prototype.toJSON.call( this ); // Required: Call 'toJSON'-method of prototype 'Command'
+                var output = Command.prototype.toJSON.call( this ); // Required: Call 'toJSON'-method of prototype 'Command'
 
-		// TODO: serialize all the necessary information as part of 'output' (JSON-format)
-		// so that it can be restored in 'fromJSON'
+                // Serialize the object uuid plus old/new values so the command can be reconstructed
+                // (see SetPositionCommand.toJSON):
+                // output.objectUuid = this.object.uuid;
+                // output.oldValue = this.oldValue.toArray ? this.oldValue.toArray() : this.oldValue;
+                // output.newValue = this.newValue.toArray ? this.newValue.toArray() : this.newValue;
 
-		return output;
+                return output;
 
-	},
+        },
 
-	fromJSON: function ( json ) {
+        fromJSON: function ( json ) {
 
-		Command.prototype.fromJSON.call( this, json ); // Required: Call 'fromJSON'-method of prototype 'Command'
+                Command.prototype.fromJSON.call( this, json ); // Required: Call 'fromJSON'-method of prototype 'Command'
 
-		// TODO: restore command from json
+                // Restore the command just like SetPositionCommand.fromJSON:
+                // - find the object via this.editor.objectByUuid( json.objectUuid )
+                // - rebuild old/new values from serialized data
+                // - reattach any additional references needed for undo/redo
 
-	}
+        }
 
 };
 
