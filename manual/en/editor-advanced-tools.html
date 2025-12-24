@@ -43,6 +43,7 @@
             <li><strong>Inset shape:</strong> rebuilds <code>ShapeGeometry</code> instances from their stored <code>shapes</code> array (same pattern as <code>examples/webgl_geometry_shapes.html</code>) and scales them toward the center to create an inset shell.</li>
             <li><strong>Extrude shape:</strong> applies <code>ExtrudeGeometry</code> with the beveled settings lifted from the third extrude block in <code>examples/webgl_geometry_extrude_shapes.html</code> (depth 20, bevel enabled, thickness 2, size 4, 1 step/segment).</li>
             <li><strong>Merge vertices:</strong> reuses <code>BufferGeometryUtils.mergeVertices()</code> the same way it appears in <code>examples/webgl_custom_attributes_points3.html</code> to weld duplicate vertices.</li>
+            <li><strong>Spiral array:</strong> clones the selected object into a sin/cos spiral that mirrors the polar offsets shown in <code>examples/webgl_shadowmesh.html</code> (the rotating torus/cube placements around lines 195–207), with controls for count, radius, height, angular step, and whether to rotate each clone outward. The helper still enforces <code>ensureAxisFrame()</code> before running.</li>
           </ul>
 
           <h2>Geometry clipboard (copy / paste)</h2>

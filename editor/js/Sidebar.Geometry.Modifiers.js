@@ -1,8 +1,9 @@
-import { UIDiv, UIButton, UIRow } from './libs/ui.js';
+import { UIDiv, UIButton, UICheckbox, UINumber, UIRow, UIText } from './libs/ui.js';
 
 import { Box2, ExtrudeGeometry, ShapeGeometry, Vector2 } from 'three';
 import { computeMikkTSpaceTangents, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as MikkTSpace from 'three/addons/libs/mikktspace.module.js';
+import { ArrayModifierCommand } from './commands/ArrayModifierCommand.js';
 
 function SidebarGeometryModifiers( editor, object ) {
 
@@ -138,9 +139,64 @@ function SidebarGeometryModifiers( editor, object ) {
 
 	} );
 
-	const mergeVerticesRow = new UIRow();
+        const mergeVerticesRow = new UIRow();
         mergeVerticesRow.add( mergeVerticesButton );
         container.add( mergeVerticesRow );
+
+        // Spiral Array (polar placement mirrors the sin/cos offsets in examples/webgl_shadowmesh.html)
+
+        const spiralHeaderRow = new UIRow();
+        spiralHeaderRow.add( new UIText( strings.getKey( 'sidebar/geometry/array_spiral' ) ) );
+        container.add( spiralHeaderRow );
+
+        const spiralCountRow = new UIRow();
+        const spiralCountLabel = new UIText( strings.getKey( 'sidebar/geometry/array_spiral/count' ) ).setWidth( '90px' );
+        const spiralCount = new UINumber( 8 ).setRange( 1, 500 ).setStep( 1 );
+        spiralCountRow.add( spiralCountLabel, spiralCount );
+        container.add( spiralCountRow );
+
+        const spiralRadiusRow = new UIRow();
+        const spiralRadiusLabel = new UIText( strings.getKey( 'sidebar/geometry/array_spiral/radius' ) ).setWidth( '90px' );
+        const spiralRadius = new UINumber( 2 ).setRange( 0.01, 1000 ).setStep( 0.1 );
+        spiralRadiusRow.add( spiralRadiusLabel, spiralRadius );
+        container.add( spiralRadiusRow );
+
+        const spiralHeightRow = new UIRow();
+        const spiralHeightLabel = new UIText( strings.getKey( 'sidebar/geometry/array_spiral/height' ) ).setWidth( '90px' );
+        const spiralHeight = new UINumber( 4 ).setRange( 0, 1000 ).setStep( 0.1 );
+        spiralHeightRow.add( spiralHeightLabel, spiralHeight );
+        container.add( spiralHeightRow );
+
+        const spiralDegreesRow = new UIRow();
+        const spiralDegreesLabel = new UIText( strings.getKey( 'sidebar/geometry/array_spiral/degrees' ) ).setWidth( '90px' );
+        const spiralDegrees = new UINumber( 30 ).setRange( - 720, 720 ).setStep( 1 );
+        spiralDegreesRow.add( spiralDegreesLabel, spiralDegrees );
+        container.add( spiralDegreesRow );
+
+        const spiralFaceRow = new UIRow();
+        const spiralFaceLabel = new UIText( strings.getKey( 'sidebar/geometry/array_spiral/face_outward' ) ).setWidth( '90px' );
+        const spiralFaceOutward = new UICheckbox( true );
+        spiralFaceRow.add( spiralFaceLabel, spiralFaceOutward );
+        container.add( spiralFaceRow );
+
+        const spiralApplyButton = new UIButton( strings.getKey( 'sidebar/geometry/array_spiral/apply' ) );
+        spiralApplyButton.onClick( function () {
+
+                if ( ensureAxisFrame() === false ) return;
+
+                editor.execute( new ArrayModifierCommand( editor, object, {
+                        count: spiralCount.getValue(),
+                        radius: spiralRadius.getValue(),
+                        height: spiralHeight.getValue(),
+                        degreesPerStep: spiralDegrees.getValue(),
+                        faceOutward: spiralFaceOutward.getValue()
+                } ) );
+
+        } );
+
+        const spiralApplyRow = new UIRow();
+        spiralApplyRow.add( spiralApplyButton );
+        container.add( spiralApplyRow );
 
         // Shape inset + extrude (shape rebuild pattern mirrors examples/webgl_geometry_shapes.html)
 
