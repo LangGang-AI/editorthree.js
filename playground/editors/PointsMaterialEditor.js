@@ -77,15 +77,27 @@ export class PointsMaterialEditor extends MaterialEditor {
 
 		this.updateTransparent();
 
-		// TODO: Fix on NodeMaterial System
+		// Align the cache key with the node inputs used in the WebGPU points examples
+		// (e.g., examples/webgpu_instance_points.html) so shader programs are rebuilt
+		// only when node wiring changes instead of every update.
 		material.customProgramCacheKey = () => {
 
-			return THREE.MathUtils.generateUUID();
+			const parts = [
+				material.colorNode ? material.colorNode.uuid : 'color:none',
+				material.opacityNode ? material.opacityNode.uuid : 'opacity:none',
+				material.sizeNode ? material.sizeNode.uuid : 'size:none',
+				material.positionNode ? material.positionNode.uuid : 'position:none',
+				material.vertexColors ? 'vertexColors:on' : 'vertexColors:off',
+				material.sizeAttenuation ? 'sizeAttenuation:on' : 'sizeAttenuation:off'
+			];
+
+			return parts.join( "|" );
 
 		};
 
-	}
+		material.needsUpdate = true;
 
+	}
 	updateTransparent() {
 
 		const { material, opacity } = this;
