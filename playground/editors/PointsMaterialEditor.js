@@ -32,12 +32,13 @@ export class PointsMaterialEditor extends MaterialEditor {
 
 		} ) );
 
-		sizeAttenuation.add( new ToggleInput( material.sizeAttenuation ).onClick( ( input ) => {
+sizeAttenuation.add( new ToggleInput( material.sizeAttenuation ).onClick( ( input ) => {
 
-			material.sizeAttenuation = input.getValue();
-			material.dispose();
+material.sizeAttenuation = input.getValue();
+material.dispose();
+this.update();
 
-		} ) );
+} ) );
 
 		color.onConnect( () => this.update(), true );
 		opacity.onConnect( () => this.update(), true );
@@ -73,29 +74,30 @@ export class PointsMaterialEditor extends MaterialEditor {
 		material.sizeNode = size.getLinkedObject() || null;
 		material.positionNode = position.getLinkedObject() || null;
 
-		material.dispose();
+material.dispose();
 
-		this.updateTransparent();
+this.updateTransparent();
 
-		// Align the cache key with the node inputs used in the WebGPU points examples
-		// (e.g., examples/webgpu_instance_points.html) so shader programs are rebuilt
-		// only when node wiring changes instead of every update.
-		material.customProgramCacheKey = () => {
+// Mirror the customProgramCacheKey usage from examples/webgl_materials_modified.html,
+// but populate it with the PointsNodeMaterial inputs used in the WebGPU instance points
+// example so shader programs only rebuild when wiring or key toggles (vertex colors,
+// size attenuation) change.
+material.customProgramCacheKey = () => {
 
-			const parts = [
-				material.colorNode ? material.colorNode.uuid : 'color:none',
-				material.opacityNode ? material.opacityNode.uuid : 'opacity:none',
-				material.sizeNode ? material.sizeNode.uuid : 'size:none',
-				material.positionNode ? material.positionNode.uuid : 'position:none',
-				material.vertexColors ? 'vertexColors:on' : 'vertexColors:off',
-				material.sizeAttenuation ? 'sizeAttenuation:on' : 'sizeAttenuation:off'
-			];
+const parts = [
+material.colorNode ? material.colorNode.uuid : 'color:none',
+material.opacityNode ? material.opacityNode.uuid : 'opacity:none',
+material.sizeNode ? material.sizeNode.uuid : 'size:none',
+material.positionNode ? material.positionNode.uuid : 'position:none',
+material.vertexColors ? 'vertexColors:on' : 'vertexColors:off',
+material.sizeAttenuation ? 'sizeAttenuation:on' : 'sizeAttenuation:off'
+];
 
-			return parts.join( "|" );
+return parts.join( '|' );
 
-		};
+};
 
-		material.needsUpdate = true;
+material.needsUpdate = true;
 
 	}
 	updateTransparent() {
